@@ -65,12 +65,11 @@ function install_nv {
     fi
 
     echo -e "${INFO_COLOR}nv installed successfully! 🎉${RESET_COLOR}"
+    sudo nv update
 
     # Add command not found handler
     add_command_not_found_handler "$HOME/.bashrc"
 }
-
-sudo nv update
 
 # Function to add command not found handler to shell configuration
 function add_command_not_found_handler {
