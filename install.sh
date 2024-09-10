@@ -66,6 +66,7 @@ function install_nv {
 
     echo -e "${INFO_COLOR}nv installed successfully! 🎉${RESET_COLOR}"
     sudo nv update
+    echo -e "Welcome to nv package manager."
 }
 
 # Main script logic
