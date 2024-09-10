@@ -31,7 +31,7 @@ function display_usage {
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
-    echo -e "  --uninstall-nv   - Uninstall nv and remove command not found handler.\n"
+    echo -e "  --uninstall-nv   - Uninstall nv.\n"
 }
 
 # Function to check if running with sudo
