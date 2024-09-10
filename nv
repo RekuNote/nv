@@ -8,7 +8,6 @@ REPO_LIST_FILE="$REPOS_DIR/repos.json"
 PACKAGES_DIR="$REPOS_DIR/packages"
 PACKAGES_TXT="$REPOS_DIR/packages.txt"
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
-HASH_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv.sha256"
 
 # Colors and formatting
 BOLD_GREEN='\033[1;32m'
@@ -176,33 +175,19 @@ function remove_package {
 function upgrade_nv {
     local current_script="$0"
     local temp_script=$(mktemp)
-    local temp_hash=$(mktemp)
 
-    echo "Checking for updates..."
-    sleep 1
-
-    # Fetch remote hash
-    curl -s -o "$temp_hash" "$HASH_URL"
-    if [ $? -ne 0 ]; then
-        echo -e "${ERROR_COLOR}Error fetching hash from $HASH_URL${RESET_COLOR}"
-        rm "$temp_script" "$temp_hash"
-        exit 1
-    fi
+    echo "Checking for script updates..."
 
     # Download the latest script
     curl -s -o "$temp_script" "$SCRIPT_URL"
     if [ $? -ne 0 ]; then
-        echo -e "${ERROR_COLOR}There was an error while checking for updates.${RESET_COLOR}"
-        rm "$temp_script" "$temp_hash"
+        echo -e "${ERROR_COLOR}Error downloading script from $SCRIPT_URL${RESET_COLOR}"
+        rm "$temp_script"
         exit 1
     fi
 
-    # Compute local script hash
-    local local_hash=$(sha256sum "$current_script" | awk '{print $1}')
-    # Fetch remote script hash
-    local remote_hash=$(cat "$temp_hash")
-
-    if [ "$local_hash" == "$remote_hash" ]; then
+    # Compare local script with remote script
+    if cmp -s "$current_script" "$temp_script"; then
         echo -e "${INFO_COLOR}You already have the latest version of nv installed, silly.${RESET_COLOR}"
     else
         echo -e "${INFO_COLOR}An update is available for nv.${RESET_COLOR}"
@@ -220,7 +205,7 @@ function upgrade_nv {
         esac
     fi
 
-    rm "$temp_script" "$temp_hash"
+    rm "$temp_script"
 }
 
 # Function to display usage
@@ -235,7 +220,7 @@ function display_usage {
     echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}   Add a new repository."
     echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR} Remove an existing repository."
     echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}  Remove a package."
-    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}         Check for a newer version of nv."
+    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}         Check for updates to the nv script."
 }
 
 # Main script logic
