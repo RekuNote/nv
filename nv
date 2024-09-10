@@ -31,6 +31,7 @@ function display_usage {
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
+    echo -e "  --upgrade-nv --force - Force upgrade to the latest version of nv."
     echo -e "  --uninstall-nv   - Uninstall nv.\n"
 }
 
@@ -281,7 +282,6 @@ check_sudo
 COMMAND="$1"
 shift
 
-
 case "$COMMAND" in
     --upgrade-nv)
         upgrade_nv "$@"
@@ -325,9 +325,6 @@ case "$COMMAND" in
             exit 1
         fi
         remove_package "$1"
-        ;;
-    --upgrade-nv)
-        upgrade_nv
         ;;
     --uninstall-nv)
         uninstall_nv
