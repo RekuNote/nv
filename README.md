@@ -1,8 +1,10 @@
-debian/buntu only
+Ubuntu & other Debian based distros Only
 
-install with
-```curl -sSL https://raw.githubusercontent.com/RekuNote/nv/main/install.sh | sudo bash```
+Install with:
+```sh
+curl -sSL https://raw.githubusercontent.com/RekuNote/nv/main/install.sh | sudo bash
+```
 
-default repo is `https://www.reximemo.net/repo`
+Default repo is `https://www.reximemo.net/repo`
 
-make your own repos with [nv-repo-tool](https://github.com/RekuNote/nv-repo-tool)
+Use [nv-repo-tool](https://github.com/RekuNote/nv-repo-tool) to create your own nv repos.
