@@ -31,7 +31,6 @@ function display_usage {
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
-    echo -e "  --upgrade-nv --force - Force upgrade to the latest version of nv."
     echo -e "  --uninstall-nv   - Uninstall nv.\n"
 }
 
@@ -190,12 +189,6 @@ function remove_package {
 function upgrade_nv {
     local current_script="$0"
     local temp_script=$(mktemp)
-    local force_upgrade=false
-
-    # Check for --force option
-    if [[ "$*" == *"--force"* ]]; then
-        force_upgrade=true
-    fi
 
     echo "Checking for updates..."
 
@@ -207,8 +200,10 @@ function upgrade_nv {
         exit 1
     fi
 
-    if $force_upgrade; then
-        echo -e "${INFO_COLOR}Forcing upgrade...${RESET_COLOR}"
+    # Compare local script with remote script
+    if cmp -s "$current_script" "$temp_script"; then
+        echo -e "${INFO_COLOR}You already have the latest version of nv installed, silly.${RESET_COLOR}"
+    else
         echo -e "${INFO_COLOR}An update is available for nv.${RESET_COLOR}"
         read -p "Do you want to update to the latest version? [y/N] " response
         case "$response" in
@@ -222,25 +217,6 @@ function upgrade_nv {
                 echo -e "${INFO_COLOR}Update canceled.${RESET_COLOR}"
                 ;;
         esac
-    else
-        # Compare local script with remote script
-        if cmp -s "$current_script" "$temp_script"; then
-            echo -e "${INFO_COLOR}You already have the latest version of nv installed.${RESET_COLOR}"
-        else
-            echo -e "${INFO_COLOR}An update is available for nv.${RESET_COLOR}"
-            read -p "Do you want to update to the latest version? [y/N] " response
-            case "$response" in
-                [yY])
-                    echo "Updating nv..."
-                    cp "$temp_script" "$current_script"
-                    chmod +x "$current_script"
-                    echo -e "${INFO_COLOR}Successfully updated nv to the latest version! 🎉${RESET_COLOR}"
-                    ;;
-                *)
-                    echo -e "${INFO_COLOR}Update canceled.${RESET_COLOR}"
-                    ;;
-            esac
-        fi
     fi
 
     rm "$temp_script"
@@ -282,9 +258,11 @@ check_sudo
 COMMAND="$1"
 shift
 
+setup_nv
+
 case "$COMMAND" in
-    --upgrade-nv)
-        upgrade_nv "$@"
+    update)
+        update
         ;;
     install)
         if [ "$#" -ne 1 ]; then
@@ -325,6 +303,9 @@ case "$COMMAND" in
             exit 1
         fi
         remove_package "$1"
+        ;;
+    --upgrade-nv)
+        upgrade_nv
         ;;
     --uninstall-nv)
         uninstall_nv
