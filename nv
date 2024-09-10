@@ -179,6 +179,7 @@ function upgrade_nv {
     local temp_hash=$(mktemp)
 
     echo "Checking for updates..."
+    sleep 1
 
     # Fetch remote hash
     curl -s -o "$temp_hash" "$HASH_URL"
