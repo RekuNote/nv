@@ -6,9 +6,6 @@
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
 INSTALL_DIR="/usr/local/bin/nv"
 TEMP_SCRIPT="/tmp/nv"
-BASHRC_PATH="$HOME/.bashrc"
-ZSHRC_PATH="$HOME/.zshrc"
-SHELL=$(basename "$SHELL")
 
 # Colors
 RESET_COLOR='\033[0m'
@@ -55,7 +52,7 @@ function download_nv {
 # Function to move nv to the appropriate directory and update PATH
 function install_nv {
     echo "Installing nv to $INSTALL_DIR..."
-    sudo mv "$TEMP_SCRIPT" "$INSTALL_DIR"
+    mv "$TEMP_SCRIPT" "$INSTALL_DIR"
     if [ $? -ne 0 ]; then
         echo -e "${ERROR_COLOR}Error moving nv script to $INSTALL_DIR${RESET_COLOR}"
         exit 1
@@ -63,18 +60,14 @@ function install_nv {
 
     if ! grep -q "$INSTALL_DIR" <<< "$PATH"; then
         echo "Adding $INSTALL_DIR to PATH..."
-        if [ "$SHELL" = "/bin/bash" ]; then
-            echo "export PATH=\$PATH:$INSTALL_DIR" >> "$BASHRC_PATH"
-            source "$BASHRC_PATH"
-        elif [ "$SHELL" = "/bin/zsh" ]; then
-            echo "export PATH=\$PATH:$INSTALL_DIR" >> "$ZSHRC_PATH"
-            source "$ZSHRC_PATH"
-        else
-            echo -e "${ERROR_COLOR}Unsupported shell: $SHELL. Please add $INSTALL_DIR to your PATH manually.${RESET_COLOR}"
-        fi
+        echo "export PATH=\$PATH:$INSTALL_DIR" >> ~/.bashrc
+        source ~/.bashrc
     fi
 
     echo -e "${INFO_COLOR}nv installed successfully! 🎉${RESET_COLOR}"
+
+    # Add command not found handler
+    add_command_not_found_handler "$HOME/.bashrc"
 }
 
 # Function to add command not found handler to shell configuration
@@ -117,14 +110,3 @@ check_compatibility
 check_dependencies
 download_nv
 install_nv
-
-# Add command not found handler based on the shell
-if [ "$SHELL" = "/bin/bash" ]; then
-    add_command_not_found_handler "$BASHRC_PATH"
-elif [ "$SHELL" = "/bin/zsh" ]; then
-    add_command_not_found_handler "$ZSHRC_PATH"
-else
-    echo -e "${ERROR_COLOR}Unsupported shell: $SHELL. Please add the command not found handler manually.${RESET_COLOR}"
-fi
-
-echo -e "${INFO_COLOR}nv installation complete. Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc for zsh) to apply changes.${RESET_COLOR}"
