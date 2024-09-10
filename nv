@@ -26,13 +26,13 @@ function display_usage {
     echo -e "  add-repo <url>   - Add a new repository URL."
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
-    echo -e "  --upgrade-nv     - Check for updates to the nv script and apply if available."
+    echo -e "  --upgrade-nv     - Check for newer versions of nv."
 }
 
 # Function to check if running with sudo
 function check_sudo {
     if [ "$(id -u)" -ne 0 ]; then
-        echo -e "${ERROR_COLOR}Use sudo 🐒${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}use sudo 🐒${RESET_COLOR}"
         exit 1
     fi
 }
@@ -77,6 +77,8 @@ function update {
             echo "$package_name $full_url" >> "$PACKAGES_TXT"
         done
     done
+
+    echo -e "${INFO_COLOR}💖 Local package list updated successfully!${RESET_COLOR}"
 }
 
 # Function to install a package
@@ -178,12 +180,12 @@ function upgrade_nv {
     local current_script="$0"
     local temp_script=$(mktemp)
 
-    echo "Checking for script updates..."
+    echo "Checking for updates..."
 
     # Download the latest script
     curl -s -o "$temp_script" "$SCRIPT_URL"
     if [ $? -ne 0 ]; then
-        echo -e "${ERROR_COLOR}Error downloading script from $SCRIPT_URL${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}Error checking for updates.${RESET_COLOR}"
         rm "$temp_script"
         exit 1
     fi
@@ -213,7 +215,7 @@ function upgrade_nv {
 # Ensure the script is executable and runs correctly after an update
 function check_script {
     if [ ! -x "$0" ]; then
-        echo -e "${ERROR_COLOR}Script is not executable. Please set execute permissions.${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}nv is not executable. Please set execute permissions. (chmod +x)${RESET_COLOR}"
         exit 1
     fi
 }
@@ -277,7 +279,6 @@ case "$COMMAND" in
         ;;
     --upgrade-nv)
         upgrade_nv
-        check_script
         ;;
     *)
         echo -e "${ERROR_COLOR}Invalid command.${RESET_COLOR}"
