@@ -6,6 +6,7 @@
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
 INSTALL_DIR="/usr/local/bin/nv"
 TEMP_SCRIPT="/tmp/nv"
+COMPLETION_SCRIPT_PATH="/etc/bash_completion.d/nv"
 
 # Colors
 RESET_COLOR='\033[0m'
@@ -52,12 +53,13 @@ function download_nv {
 # Function to move nv to the appropriate directory and update PATH
 function install_nv {
     echo "Installing nv to $INSTALL_DIR..."
-    mv "$TEMP_SCRIPT" "$INSTALL_DIR"
+    sudo mv "$TEMP_SCRIPT" "$INSTALL_DIR"
     if [ $? -ne 0 ]; then
         echo -e "${ERROR_COLOR}Error moving nv script to $INSTALL_DIR${RESET_COLOR}"
         exit 1
     fi
 
+    # Add INSTALL_DIR to PATH if not already present
     if ! grep -q "$INSTALL_DIR" <<< "$PATH"; then
         echo "Adding $INSTALL_DIR to PATH..."
         echo "export PATH=\$PATH:$INSTALL_DIR" >> ~/.bashrc
@@ -70,8 +72,76 @@ function install_nv {
     nv
 }
 
+# Function to install Bash completion script
+function install_completion {
+    echo "Setting up Bash completion for nv..."
+
+    local completion_script_content
+    completion_script_content=$(cat << 'EOF'
+#!/bin/bash
+
+# Completion function for nv script
+_nv_completion() {
+    local cur prev opts
+
+    # Get the current word being completed
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Define possible top-level commands
+    local commands="update install list list-repos add-repo remove-repo remove --upgrade-nv --uninstall-nv"
+
+    # Define options for 'list'
+    local list_options="--repo"
+
+    case "$prev" in
+        # If the previous word is one of the commands, suggest arguments for that command
+        update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv|--uninstall-nv)
+            opts=""
+            ;;
+        list)
+            if [[ "$cur" == --* ]]; then
+                opts="$list_options"
+            else
+                opts=""
+            fi
+            ;;
+        add-repo|remove-repo)
+            opts=""
+            ;;
+        remove)
+            opts=""
+            ;;
+        install)
+            opts=""  # Potentially add package names here
+            ;;
+        *)
+            opts="$commands"
+            ;;
+    esac
+
+    # Generate completions
+    COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+}
+
+# Register the completion function
+complete -F _nv_completion /usr/local/bin/nv
+EOF
+)
+
+    # Create the directory for completion scripts if it doesn't exist
+    sudo mkdir -p /etc/bash_completion.d
+
+    # Write the completion script to the specified location
+    echo "$completion_script_content" | sudo tee "$COMPLETION_SCRIPT_PATH" > /dev/null
+
+    # Make the completion script executable
+    sudo chmod +x "$COMPLETION_SCRIPT_PATH"
+}
+
 # Main script logic
 check_compatibility
 check_dependencies
 download_nv
 install_nv
+install_completion
