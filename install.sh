@@ -137,6 +137,8 @@ EOF
 
     # Make the completion script executable
     sudo chmod +x "$COMPLETION_SCRIPT_PATH"
+
+    echo -e "${INFO_COLOR}Bash completion script installed successfully!${RESET_COLOR}"
 }
 
 # Main script logic
