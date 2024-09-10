@@ -222,17 +222,6 @@ function upgrade_nv {
     rm "$temp_script"
 }
 
-# Function to remove command not found handler from shell configuration
-function remove_command_not_found_handler {
-    local shell_rc_path="$1"
-    if [ -f "$shell_rc_path" ]; then
-        sed -i '/command_not_found_handle/d' "$shell_rc_path"
-        echo "Removed command not found handler from $shell_rc_path"
-    else
-        echo "Shell configuration file $shell_rc_path not found"
-    fi
-}
-
 # Function to uninstall nv
 function uninstall_nv {
     echo -e "${INFO_COLOR}Are you sure you want to uninstall nv? [y/N]${RESET_COLOR}"
