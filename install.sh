@@ -70,6 +70,8 @@ function install_nv {
     add_command_not_found_handler "$HOME/.bashrc"
 }
 
+sudo nv update
+
 # Function to add command not found handler to shell configuration
 function add_command_not_found_handler {
     local shell_rc_path="$1"
@@ -104,6 +106,7 @@ EOF
         echo "Command not found handler already present in $shell_rc_path"
     fi
 }
+
 
 # Main script logic
 check_compatibility
