@@ -27,6 +27,7 @@ function display_usage {
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
+    echo -e "  🛠️ Help command to see this usage information."
 }
 
 # Function to check if running with sudo
@@ -51,6 +52,11 @@ function setup_nv {
 
     if [ ! -f "$PACKAGES_TXT" ]; then
         echo "" > "$PACKAGES_TXT"
+    fi
+
+    # Add default repository if this is the first run
+    if [ "$(jq '. | length' "$REPO_LIST_FILE")" -eq 0 ]; then
+        add_repo "https://www.reximemo.net/repo"
     fi
 }
 
@@ -93,7 +99,7 @@ function install_package {
     package_file=$(grep "^$package_name " "$PACKAGES_TXT" | awk '{print $2}')
 
     if [ -z "$package_file" ]; then
-        echo -e "${ERROR_COLOR}Package $package_name not found in any repository.${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}Package ${PACKAGE_COLOR}$package_name${RESET_COLOR} not found in any repository.${RESET_COLOR}"
         exit 1
     fi
 
@@ -147,11 +153,11 @@ function add_repo {
     # Remove trailing slash if present
     repo_url=$(echo "$repo_url" | sed 's:/*$::')
     if jq -e --arg url "$repo_url" '.[] | .url == $url' "$REPO_LIST_FILE" > /dev/null; then
-        echo -e "${INFO_COLOR}Repository $repo_url already added.${RESET_COLOR}"
+        echo -e "${INFO_COLOR}Repository ${PACKAGE_COLOR}$repo_url${RESET_COLOR} already added.${RESET_COLOR}"
     else
         jq --arg url "$repo_url" '. += [{"url": $url}]' "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
         mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
-        echo -e "${INFO_COLOR}Added repository: $repo_url${RESET_COLOR}"
+        echo -e "${INFO_COLOR}Added repository: ${PACKAGE_COLOR}$repo_url${RESET_COLOR}"
     fi
 }
 
@@ -161,9 +167,9 @@ function remove_repo {
     if jq -e --arg url "$repo_url" '.[] | .url == $url' "$REPO_LIST_FILE" > /dev/null; then
         jq --arg url "$repo_url" 'del(.[] | select(.url == $url))' "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
         mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
-        echo -e "${INFO_COLOR}Removed repository: $repo_url${RESET_COLOR}"
+        echo -e "${INFO_COLOR}Removed repository: ${PACKAGE_COLOR}$repo_url${RESET_COLOR}"
     else
-        echo -e "${ERROR_COLOR}Repository $repo_url not found.${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}Repository ${PACKAGE_COLOR}$repo_url${RESET_COLOR} not found.${RESET_COLOR}"
     fi
 }
 
