@@ -8,14 +8,16 @@ REPO_LIST_FILE="$REPOS_DIR/repos.json"
 PACKAGES_DIR="$REPOS_DIR/packages"
 PACKAGES_TXT="$REPOS_DIR/packages.txt"
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
+BASHRC_PATH="$HOME/.bashrc"
+ZSHRC_PATH="$HOME/.zshrc"
+SHELL=$(basename "$SHELL")
 NV_BIN_PATH="/usr/local/bin/nv"
-SHELL_RC_FILE=""
 
 # Colors
 RESET_COLOR='\033[0m'
 INFO_COLOR='\033[1;34m'
 ERROR_COLOR='\033[1;31m'
-PACKAGE_COLOR='\033[1;32m'  # Lime green for package names
+PACKAGE_COLOR='\033[1;32m'
 
 # Function to display usage
 function display_usage {
@@ -29,7 +31,7 @@ function display_usage {
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
-    echo -e "  --uninstall-nv   - Uninstall nv and remove its files.\n"
+    echo -e "  --uninstall-nv   - Uninstall nv and remove command not found handler.\n"
 }
 
 # Function to check if running with sudo
@@ -220,35 +222,42 @@ function upgrade_nv {
     rm "$temp_script"
 }
 
-# Function to uninstall nv and remove related files
+# Function to remove command not found handler from shell configuration
+function remove_command_not_found_handler {
+    local shell_rc_path="$1"
+    if [ -f "$shell_rc_path" ]; then
+        sed -i '/command_not_found_handle/d' "$shell_rc_path"
+        echo "Removed command not found handler from $shell_rc_path"
+    else
+        echo "Shell configuration file $shell_rc_path not found"
+    fi
+}
+
+# Function to uninstall nv
 function uninstall_nv {
-    echo -e "Are you sure you want to uninstall nv? This will remove nv and its configuration files. [y/N]"
-    read response
+    echo -e "${INFO_COLOR}Are you sure you want to uninstall nv? [y/N]${RESET_COLOR}"
+    read -r response
     case "$response" in
         [yY])
             echo "Uninstalling nv..."
-            # Remove nv binary
             sudo rm -f "$NV_BIN_PATH"
-            # Remove NV configuration files
-            rm -rf "$REPOS_DIR"
 
-            # Remove command not found handling from shell configuration files
-            if [ -f "$HOME/.bashrc" ]; then
-                sed -i '/nv_command_not_found/d' "$HOME/.bashrc"
-                echo "Removed command not found handler from .bashrc"
+            # Remove configuration from shell
+            if [ "$SHELL" = "bash" ]; then
+                remove_command_not_found_handler "$BASHRC_PATH"
+            elif [ "$SHELL" = "zsh" ]; then
+                remove_command_not_found_handler "$ZSHRC_PATH"
+            else
+                echo "Unsupported shell: $SHELL"
             fi
 
-            if [ -f "$HOME/.zshrc" ]; then
-                sed -i '/nv_command_not_found/d' "$HOME/.zshrc"
-                echo "Removed command not found handler from .zshrc"
-            fi
-
-            echo -e "${INFO_COLOR}Bye. 💔${RESET_COLOR}"
+            echo -e "${INFO_COLOR}Uninstallation complete. Bye. 💔${RESET_COLOR}"
             ;;
         *)
-            echo -e "${INFO_COLOR}Uninstall canceled.${RESET_COLOR}"
+            echo -e "${INFO_COLOR}Uninstallation canceled.${RESET_COLOR}"
             ;;
     esac
+    exit
 }
 
 # Ensure the script is executable and runs correctly after an update
@@ -256,31 +265,6 @@ function check_script {
     if [ ! -x "$0" ]; then
         echo -e "${ERROR_COLOR}nv is not executable. Please set execute permissions. (chmod +x)${RESET_COLOR}"
         exit 1
-    fi
-}
-
-# Function to handle command not found for 'nv'
-function nv_command_not_found {
-    echo -e "${ERROR_COLOR}Command 'nv' not found. Did you mean to run 'nv'?${RESET_COLOR}"
-    echo -e "${INFO_COLOR}You can install it with the following command:${RESET_COLOR}"
-    echo -e "${INFO_COLOR}sudo curl -fsSL ${SCRIPT_URL} -o /usr/local/bin/nv && sudo chmod +x /usr/local/bin/nv${RESET_COLOR}"
-}
-
-# Add command not found handler to shell configuration
-function add_command_not_found_handler {
-    local rc_file
-    if [ -f "$HOME/.bashrc" ]; then
-        rc_file="$HOME/.bashrc"
-    elif [ -f "$HOME/.zshrc" ]; then
-        rc_file="$HOME/.zshrc"
-    else
-        echo -e "${ERROR_COLOR}No suitable shell configuration file found.${RESET_COLOR}"
-        return
-    fi
-
-    if ! grep -q 'nv_command_not_found' "$rc_file"; then
-        echo 'command_not_found_handle() { nv_command_not_found; }' >> "$rc_file"
-        echo "Added command not found handler to $rc_file"
     fi
 }
 
@@ -353,6 +337,3 @@ case "$COMMAND" in
         exit 1
         ;;
 esac
-
-# Add command not found handler if necessary
-add_command_not_found_handler
