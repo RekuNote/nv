@@ -1,137 +1,76 @@
 #!/bin/bash
 
-# Dependencies: dialog
-# Ensure dialog is installed
-if ! command -v dialog &> /dev/null; then
-    echo "Dialog is required but not installed. Installing..."
-    sudo apt-get install -y dialog
-fi
+# Installation script for NV Package Manager
 
-# Configuration Paths
-REPOS_DIR="$HOME/.nv_repos"
-REPO_LIST_FILE="$REPOS_DIR/repos.json"
-PACKAGES_DIR="$REPOS_DIR/packages"
-PACKAGES_TXT="$REPOS_DIR/packages.txt"
-DEFAULT_REPO_URL="https://www.reximemo.net/repo"
+# Constants
+SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
+INSTALL_DIR="/usr/local/bin/nv"
+TEMP_SCRIPT="/tmp/nv"
 
-# Function to show a message box
-function show_message {
-    dialog --msgbox "$1" 10 50
+# Colors
+RESET_COLOR='\033[0m'
+INFO_COLOR='\033[1;34m'
+ERROR_COLOR='\033[1;31m'
+
+# Function to check if the system is compatible
+function check_compatibility {
+    if ! grep -q '^ID=ubuntu' /etc/os-release && ! grep -q '^ID=debian' /etc/os-release; then
+        echo -e "${ERROR_COLOR}nv is only compatible with Ubuntu or Debian-based distributions.${RESET_COLOR}"
+        exit 1
+    fi
 }
 
-# Function to add a repository
-function add_repository {
-    local url
-    url=$(dialog --inputbox "Enter the repository URL:" 8 50 "$DEFAULT_REPO_URL" 3>&1 1>&2 2>&3)
-    case "$?" in
-        0)
-            if [ -n "$url" ]; then
-                # Add URL to repo list
-                if ! grep -q "$url" "$REPO_LIST_FILE"; then
-                    echo "$url" >> "$REPO_LIST_FILE"
-                    show_message "Repository added: $url"
-                else
-                    show_message "Repository already exists: $url"
-                fi
-            else
-                show_message "Repository URL cannot be empty."
-            fi
-            ;;
-        1)
-            show_message "Canceled."
-            ;;
-    esac
-}
+# Function to check and install required packages
+function check_dependencies {
+    local dependencies=("curl" "jq" "dpkg" "apt-get")
+    local missing=0
 
-# Function to remove a repository
-function remove_repository {
-    local url
-    url=$(dialog --inputbox "Enter the repository URL to remove:" 8 50 "" 3>&1 1>&2 2>&3)
-    case "$?" in
-        0)
-            if [ -n "$url" ]; then
-                grep -v "$url" "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
-                mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
-                show_message "Repository removed: $url"
-            else
-                show_message "Repository URL cannot be empty."
-            fi
-            ;;
-        1)
-            show_message "Canceled."
-            ;;
-    esac
-}
-
-# Function to setup the TUI
-function setup_tui {
-    while true; do
-        CHOICE=$(dialog --menu "Setup NV" 15 50 4 \
-            "1" "Manage Repositories" \
-            "2" "Configure Repositories Directory" \
-            "3" "Finish Setup" \
-            3>&1 1>&2 2>&3)
-        case "$CHOICE" in
-            1)
-                while true; do
-                    REPO_CHOICE=$(dialog --menu "Manage Repositories" 15 50 4 \
-                        "1" "Add Repository" \
-                        "2" "Remove Repository" \
-                        "3" "List Repositories" \
-                        "4" "Back" \
-                        3>&1 1>&2 2>&3)
-                    case "$REPO_CHOICE" in
-                        1)
-                            add_repository
-                            ;;
-                        2)
-                            remove_repository
-                            ;;
-                        3)
-                            dialog --textbox "$REPO_LIST_FILE" 20 50
-                            ;;
-                        4)
-                            break
-                            ;;
-                        *)
-                            show_message "Invalid choice."
-                            ;;
-                    esac
-                done
-                ;;
-            2)
-                REPOS_DIR=$(dialog --inputbox "Enter the new repositories directory path:" 8 50 "$REPOS_DIR" 3>&1 1>&2 2>&3)
-                if [ -n "$REPOS_DIR" ]; then
-                    REPO_LIST_FILE="$REPOS_DIR/repos.json"
-                    PACKAGES_DIR="$REPOS_DIR/packages"
-                    PACKAGES_TXT="$REPOS_DIR/packages.txt"
-                    mkdir -p "$PACKAGES_DIR"
-                    touch "$REPO_LIST_FILE"
-                    touch "$PACKAGES_TXT"
-                    echo "[]" > "$REPO_LIST_FILE"
-                    show_message "Repositories directory updated to: $REPOS_DIR"
-                else
-                    show_message "Directory path cannot be empty."
-                fi
-                ;;
-            3)
-                break
-                ;;
-            *)
-                show_message "Invalid choice."
-                ;;
-        esac
+    for dep in "${dependencies[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            echo -e "${ERROR_COLOR}Missing dependency: $dep${RESET_COLOR}"
+            missing=1
+        fi
     done
+
+    if [ $missing -eq 1 ]; then
+        echo -e "${ERROR_COLOR}Please install the missing dependencies and try again.${RESET_COLOR}"
+        exit 1
+    fi
 }
 
-# Main script execution
-dialog --msgbox "Welcome to the NV setup. Let's configure NV package manager." 10 50
+# Function to download the latest version of nv
+function download_nv {
+    echo "Downloading the latest version of nv..."
+    curl -s -o "$TEMP_SCRIPT" "$SCRIPT_URL"
+    if [ $? -ne 0 ]; then
+        echo -e "${ERROR_COLOR}Error downloading nv from $SCRIPT_URL${RESET_COLOR}"
+        exit 1
+    fi
+    chmod +x "$TEMP_SCRIPT"
+}
 
-# Setup TUI for initial configuration
-setup_tui
+# Function to move nv to the appropriate directory and update PATH
+function install_nv {
+    echo "Installing nv to $INSTALL_DIR..."
+    mv "$TEMP_SCRIPT" "$INSTALL_DIR"
+    if [ $? -ne 0 ]; then
+        echo -e "${ERROR_COLOR}Error moving nv script to $INSTALL_DIR${RESET_COLOR}"
+        exit 1
+    fi
 
-# Final message
-dialog --msgbox "Setup complete! You can now use the NV package manager." 10 50
+    if ! grep -q "$INSTALL_DIR" <<< "$PATH"; then
+        echo "Adding $INSTALL_DIR to PATH..."
+        echo "export PATH=\$PATH:$INSTALL_DIR" >> ~/.bashrc
+        source ~/.bashrc
+    fi
 
-# Clean up
-clear
+    echo -e "${INFO_COLOR}nv installed successfully! 🎉${RESET_COLOR}"
+    sudo nv update
+    echo -e "\n\033[35mWelcome to nv package manager.\033[0m\n"
+}
+
+# Main script logic
+check_compatibility
+check_dependencies
+download_nv
+install_nv
