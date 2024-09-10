@@ -1,0 +1,256 @@
+#!/bin/bash
+
+# NV Package Manager Client
+
+# Configuration
+REPOS_DIR="$HOME/.nv_repos"
+REPO_LIST_FILE="$REPOS_DIR/repos.json"
+PACKAGES_DIR="$REPOS_DIR/packages"
+PACKAGES_TXT="$REPOS_DIR/packages.txt"
+
+# Colors and formatting
+BOLD_GREEN='\033[1;32m'
+RESET_COLOR='\033[0m'
+BOLD='\033[1m'
+ERROR_COLOR='\033[1;31m'
+INFO_COLOR='\033[1;34m'
+
+# Function to check for sudo
+function check_sudo {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo -e "${ERROR_COLOR}use sudo 🐒${RESET_COLOR}"
+        exit 1
+    fi
+}
+
+# Function to initialize the configuration
+function setup_nv {
+    if [ ! -d "$REPOS_DIR" ]; then
+        echo "Creating NV repos directory: $REPOS_DIR"
+        mkdir -p "$PACKAGES_DIR"
+    fi
+    
+    # Initialize repos.json and packages.txt if they don't exist
+    if [ ! -f "$REPO_LIST_FILE" ]; then
+        echo "[]" > "$REPO_LIST_FILE"
+    fi
+
+    if [ ! -f "$PACKAGES_TXT" ]; then
+        echo "" > "$PACKAGES_TXT"
+    fi
+}
+
+# Function to update local package list
+function update {
+    echo "Updating local package list..."
+    rm -f "$PACKAGES_TXT"
+    touch "$PACKAGES_TXT"
+
+    jq -r '.[] | .url' "$REPO_LIST_FILE" | while read -r repo; do
+        echo "Fetching package list from $repo"
+        raw_response=$(curl -s "$repo/packages.txt")
+        if [ $? -ne 0 ]; then
+            echo "Error fetching $repo/packages.txt"
+            continue
+        fi
+        echo "Raw response from $repo/packages.txt:"
+        echo "$raw_response"
+        
+        echo "$raw_response" | while read -r line; do
+            package_name=$(echo "$line" | awk '{print $1}')
+            package_file=$(echo "$line" | awk '{print $2}')
+            full_url="$repo/$package_file"
+            echo "$package_name $full_url" >> "$PACKAGES_TXT"
+        done
+    done
+}
+
+# Function to install a package
+function install_package {
+    local package_name="$1"
+    if [ ! -f "$PACKAGES_TXT" ]; then
+        echo "Error: $PACKAGES_TXT not found. Please run 'nv update' first."
+        exit 1
+    fi
+
+    local package_file
+    package_file=$(grep "^$package_name " "$PACKAGES_TXT" | awk '{print $2}')
+
+    if [ -z "$package_file" ]; then
+        echo "Package ${BOLD_GREEN}${package_name}${RESET_COLOR} not found in any repository."
+        exit 1
+    fi
+
+    local package_path="$PACKAGES_DIR/$(basename "$package_file")"
+    if [ ! -f "$package_path" ]; then
+        echo "Downloading package file from repository: $package_file"
+        if ! curl -s -o "$package_path" "$package_file"; then
+            echo "Error downloading package: $package_file"
+            exit 1
+        fi
+    fi
+
+    echo -e "Installing package: ${BOLD}${BOLD_GREEN}${package_name}${RESET_COLOR}"
+    if sudo dpkg -i "$package_path"; then
+        sudo apt-get install -f
+        echo -e "💕 ${BOLD}${BOLD_GREEN}${package_name}${RESET_COLOR} was installed successfully!"
+    else
+        echo -e "Oops! There was an issue installing ${BOLD}${BOLD_GREEN}${package_name}${RESET_COLOR}. 😟"
+    fi
+}
+
+# Function to list packages installed by nv
+function list_installed {
+    dpkg -l | grep '^ii' | awk '{print $2}' | grep -E '^nv-' | while read -r pkg; do
+        echo -e "${BOLD_GREEN}${pkg}${RESET_COLOR}"
+    done
+}
+
+# Function to list all packages in all repos
+function list_all_packages {
+    if [ -f "$PACKAGES_TXT" ]; then
+        cat "$PACKAGES_TXT" | awk '{print $1}' | sort -u
+    else
+        echo "No packages available."
+    fi
+}
+
+# Function to list packages in a specific repo
+function list_repo_packages {
+    local repo_url="$1"
+    curl -s "$repo_url/packages.txt" | while read -r line; do
+        package_name=$(echo "$line" | awk '{print $1}')
+        echo -e "${BOLD_GREEN}${package_name}${RESET_COLOR}"
+    done
+}
+
+# Function to list all added repositories
+function list_repos {
+    if [ -f "$REPO_LIST_FILE" ]; then
+        jq '.' "$REPO_LIST_FILE"
+    else
+        echo "No repositories added."
+    fi
+}
+
+# Function to add a repository
+function add_repo {
+    local repo_url="$1"
+    # Remove trailing slash if present
+    repo_url=$(echo "$repo_url" | sed 's:/*$::')
+    if jq -e --arg url "$repo_url" '.[] | .url == $url' "$REPO_LIST_FILE" > /dev/null; then
+        echo "Repository $repo_url already added."
+    else
+        jq --arg url "$repo_url" '. += [{"url": $url}]' "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
+        mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
+        echo "Added repository: $repo_url"
+    fi
+}
+
+# Function to remove a repository
+function remove_repo {
+    local repo_url="$1"
+    if jq -e --arg url "$repo_url" '.[] | .url == $url' "$REPO_LIST_FILE" > /dev/null; then
+        jq --arg url "$repo_url" 'del(.[] | select(.url == $url))' "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
+        mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
+        echo "Removed repository: $repo_url"
+    else
+        echo "Repository $repo_url not found."
+    fi
+}
+
+# Function to remove a package
+function remove_package {
+    local package_name="$1"
+    echo -e "Removing package: ${BOLD_GREEN}${package_name}${RESET_COLOR}"
+    if sudo apt-get remove --purge -y "$package_name"; then
+        echo -e "💔 ${BOLD_GREEN}${package_name}${RESET_COLOR} was removed successfully."
+    else
+        echo -e "Oops! There was an issue removing ${BOLD_GREEN}${package_name}${RESET_COLOR}. 😟"
+    fi
+}
+
+# Function to display usage
+function display_usage {
+    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove} [arguments...]${RESET_COLOR}"
+    echo
+    echo -e "${BOLD}Commands:${RESET_COLOR}"
+    echo -e "  ${BOLD}update${RESET_COLOR}                  Update the local package list from all repositories."
+    echo -e "  ${BOLD}install <package_name>${RESET_COLOR}   Install the specified package."
+    echo -e "  ${BOLD}list${RESET_COLOR}                    List packages installed by nv."
+    echo -e "  ${BOLD}list --repo [repo_url]${RESET_COLOR}   List packages in the specified repository, or all repos if none specified."
+    echo -e "  ${BOLD}list-repos${RESET_COLOR}              List all added repositories."
+    echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}      Add a repository URL."
+    echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR}   Remove a repository URL."
+    echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}    Remove the specified package."
+    echo
+    echo -e "${INFO_COLOR}Note:${RESET_COLOR} Commands must be run with sudo for proper permissions."
+    echo -e "${ERROR_COLOR}use sudo 🐒${RESET_COLOR}"
+}
+
+# Main script logic
+if [ "$#" -lt 1 ]; then
+    display_usage
+    exit 1
+fi
+
+COMMAND="$1"
+shift
+
+check_sudo
+setup_nv
+
+case "$COMMAND" in
+    update)
+        update
+        ;;
+    install)
+        if [ "$#" -ne 1 ]; then
+            echo "Usage: $0 install <package_name>"
+            exit 1
+        fi
+        install_package "$1"
+        ;;
+    list)
+        if [ "$#" -eq 0 ]; then
+            list_installed
+        elif [ "$#" -eq 1 ] && [ "$1" == "--repo" ]; then
+            for repo in $(jq -r '.[] | .url' "$REPO_LIST_FILE"); do
+                echo "Packages from $repo:"
+                list_repo_packages "$repo"
+            done
+        else
+            echo "Usage: $0 list [--repo <repo_url>]"
+            exit 1
+        fi
+        ;;
+    list-repos)
+        list_repos
+        ;;
+    add-repo)
+        if [ "$#" -ne 1 ]; then
+            echo "Usage: $0 add-repo <repo_url>"
+            exit 1
+        fi
+        add_repo "$1"
+        ;;
+    remove-repo)
+        if [ "$#" -ne 1 ]; then
+            echo "Usage: $0 remove-repo <repo_url>"
+            exit 1
+        fi
+        remove_repo "$1"
+        ;;
+    remove)
+        if [ "$#" -ne 1 ]; then
+            echo "Usage: $0 remove <package_name>"
+            exit 1
+        fi
+        remove_package "$1"
+        ;;
+    *)
+        echo -e "${ERROR_COLOR}Invalid command.${RESET_COLOR}"
+        display_usage
+        exit 1
+        ;;
+esac
