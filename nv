@@ -8,6 +8,7 @@ REPO_LIST_FILE="$REPOS_DIR/repos.json"
 PACKAGES_DIR="$REPOS_DIR/packages"
 PACKAGES_TXT="$REPOS_DIR/packages.txt"
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
+HASH_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv.sha256"
 
 # Colors and formatting
 BOLD_GREEN='\033[1;32m'
@@ -78,7 +79,7 @@ function install_package {
     package_file=$(grep "^$package_name " "$PACKAGES_TXT" | awk '{print $2}')
 
     if [ -z "$package_file" ]; then
-        echo "Package ${BOLD_GREEN}${package_name}${RESET_COLOR} not found in any repository."
+        echo -e "Package ${BOLD_GREEN}${package_name}${RESET_COLOR} not found in any repository."
         exit 1
     fi
 
@@ -174,21 +175,41 @@ function remove_package {
 # Function to check and upgrade nv script
 function upgrade_nv {
     local current_script="$0"
-    local temp_file=$(mktemp)
+    local temp_script=$(mktemp)
+    local temp_hash=$(mktemp)
 
     echo "Checking for script updates..."
 
-    curl -s -o "$temp_file" "$SCRIPT_URL"
-    if cmp -s "$current_script" "$temp_file"; then
+    # Fetch remote hash
+    curl -s -o "$temp_hash" "$HASH_URL"
+    if [ $? -ne 0 ]; then
+        echo -e "${ERROR_COLOR}Error fetching hash from $HASH_URL${RESET_COLOR}"
+        rm "$temp_script" "$temp_hash"
+        exit 1
+    fi
+
+    # Download the latest script
+    curl -s -o "$temp_script" "$SCRIPT_URL"
+    if [ $? -ne 0 ]; then
+        echo -e "${ERROR_COLOR}Error downloading script from $SCRIPT_URL${RESET_COLOR}"
+        rm "$temp_script" "$temp_hash"
+        exit 1
+    fi
+
+    # Compute local script hash
+    local local_hash=$(sha256sum "$current_script" | awk '{print $1}')
+    # Fetch remote script hash
+    local remote_hash=$(cat "$temp_hash")
+
+    if [ "$local_hash" == "$remote_hash" ]; then
         echo -e "${INFO_COLOR}You already have the latest version of nv installed, silly.${RESET_COLOR}"
-        rm "$temp_file"
     else
         echo -e "${INFO_COLOR}An update is available for nv.${RESET_COLOR}"
         read -p "Do you want to update to the latest version? [y/N] " response
         case "$response" in
             [yY])
                 echo "Updating nv..."
-                cp "$temp_file" "$current_script"
+                cp "$temp_script" "$current_script"
                 chmod +x "$current_script"
                 echo -e "${INFO_COLOR}Successfully updated nv to the latest version! 🎉${RESET_COLOR}"
                 ;;
@@ -196,23 +217,24 @@ function upgrade_nv {
                 echo -e "${INFO_COLOR}Update canceled.${RESET_COLOR}"
                 ;;
         esac
-        rm "$temp_file"
     fi
+
+    rm "$temp_script" "$temp_hash"
 }
 
 # Function to display usage
 function display_usage {
-    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv} [arguments...]${RESET_COLOR}"
-    echo
-    echo -e "${BOLD}Commands:${RESET_COLOR}"
-    echo -e "  ${BOLD}update${RESET_COLOR}                  Update the local package list from all repositories."
-    echo -e "  ${BOLD}install <package_name>${RESET_COLOR}   Install the specified package."
-    echo -e "  ${BOLD}list --repo [repo_url]${RESET_COLOR}   List packages in the specified repository, or all repos if none specified."
-    echo -e "  ${BOLD}list-repos${RESET_COLOR}              List all added repositories."
-    echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}      Add a repository URL."
-    echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR}   Remove a repository URL."
-    echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}    Remove the specified package."
-    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}            Check for newer versions of nv."
+    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv}${RESET_COLOR}"
+    echo -e "${INFO_COLOR}Commands:${RESET_COLOR}"
+    echo -e "  ${BOLD}update${RESET_COLOR}             Update the local package list from repositories."
+    echo -e "  ${BOLD}install <package_name>${RESET_COLOR}    Install a package."
+    echo -e "  ${BOLD}list${RESET_COLOR}                List packages installed by nv."
+    echo -e "  ${BOLD}list --repo <repo_url>${RESET_COLOR} List packages from a specific repository."
+    echo -e "  ${BOLD}list-repos${RESET_COLOR}          List all added repositories."
+    echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}   Add a new repository."
+    echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR} Remove an existing repository."
+    echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}  Remove a package."
+    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}         Check for a newer version of nv."
 }
 
 # Main script logic
@@ -244,11 +266,8 @@ case "$COMMAND" in
             list_installed
         elif [ "$#" -eq 2 ] && [ "$1" == "--repo" ]; then
             list_repo_packages "$2"
-        elif [ "$#" -eq 0 ]; then
-            list_all_packages
         else
-            echo -e "${ERROR_COLOR}Usage: $0 list [--repo <repo_url>]${RESET_COLOR}"
-            exit 1
+            list_all_packages
         fi
         ;;
     list-repos)
