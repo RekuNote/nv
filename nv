@@ -9,17 +9,30 @@ PACKAGES_DIR="$REPOS_DIR/packages"
 PACKAGES_TXT="$REPOS_DIR/packages.txt"
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
 
-# Colors and formatting
-BOLD_GREEN='\033[1;32m'
+# Colors
 RESET_COLOR='\033[0m'
-BOLD='\033[1m'
-ERROR_COLOR='\033[1;31m'
 INFO_COLOR='\033[1;34m'
+ERROR_COLOR='\033[1;31m'
+PACKAGE_COLOR='\033[1;32m'  # Lime green for package names
 
-# Function to check for sudo
+# Function to display usage
+function display_usage {
+    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv} [arguments...]${RESET_COLOR}"
+    echo -e "  update           - Update the local package list from all repositories."
+    echo -e "  install <pkg>    - Install the specified package."
+    echo -e "  list             - List installed packages."
+    echo -e "  list --repo <url> - List packages from a specific repository or all repositories if no URL is provided."
+    echo -e "  list-repos       - List all added repositories."
+    echo -e "  add-repo <url>   - Add a new repository URL."
+    echo -e "  remove-repo <url>- Remove a repository URL."
+    echo -e "  remove <pkg>     - Remove the specified package."
+    echo -e "  --upgrade-nv     - Check for updates to the nv script and apply if available."
+}
+
+# Function to check if running with sudo
 function check_sudo {
     if [ "$(id -u)" -ne 0 ]; then
-        echo -e "${ERROR_COLOR}use sudo 🐒${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}Use sudo 🐒${RESET_COLOR}"
         exit 1
     fi
 }
@@ -30,7 +43,7 @@ function setup_nv {
         echo "Creating NV repos directory: $REPOS_DIR"
         mkdir -p "$PACKAGES_DIR"
     fi
-    
+
     # Initialize repos.json and packages.txt if they don't exist
     if [ ! -f "$REPO_LIST_FILE" ]; then
         echo "[]" > "$REPO_LIST_FILE"
@@ -51,7 +64,7 @@ function update {
         echo "Fetching package list from $repo"
         raw_response=$(curl -s "$repo/packages.txt")
         if [ $? -ne 0 ]; then
-            echo "Error fetching $repo/packages.txt"
+            echo -e "${ERROR_COLOR}Error fetching $repo/packages.txt${RESET_COLOR}"
             continue
         fi
         echo "Raw response from $repo/packages.txt:"
@@ -70,7 +83,7 @@ function update {
 function install_package {
     local package_name="$1"
     if [ ! -f "$PACKAGES_TXT" ]; then
-        echo "Error: $PACKAGES_TXT not found. Please run 'nv update' first."
+        echo -e "${ERROR_COLOR}Error: $PACKAGES_TXT not found. Please run 'nv update' first.${RESET_COLOR}"
         exit 1
     fi
 
@@ -78,7 +91,7 @@ function install_package {
     package_file=$(grep "^$package_name " "$PACKAGES_TXT" | awk '{print $2}')
 
     if [ -z "$package_file" ]; then
-        echo -e "Package ${BOLD_GREEN}${package_name}${RESET_COLOR} not found in any repository."
+        echo -e "${ERROR_COLOR}Package $package_name not found in any repository.${RESET_COLOR}"
         exit 1
     fi
 
@@ -86,43 +99,35 @@ function install_package {
     if [ ! -f "$package_path" ]; then
         echo "Downloading package file from repository: $package_file"
         if ! curl -s -o "$package_path" "$package_file"; then
-            echo "Error downloading package: $package_file"
+            echo -e "${ERROR_COLOR}Error downloading package: $package_file${RESET_COLOR}"
             exit 1
         fi
     fi
 
-    echo -e "Installing package: ${BOLD}${BOLD_GREEN}${package_name}${RESET_COLOR}"
-    if sudo dpkg -i "$package_path"; then
-        sudo apt-get install -f
-        echo -e "💕 ${BOLD}${BOLD_GREEN}${package_name}${RESET_COLOR} was installed successfully!"
-    else
-        echo -e "Oops! There was an issue installing ${BOLD}${BOLD_GREEN}${package_name}${RESET_COLOR}. 😟"
-    fi
+    echo "Installing package: ${PACKAGE_COLOR}$package_name${RESET_COLOR}"
+    sudo dpkg -i "$package_path"
+    sudo apt-get install -f
+    echo -e "${INFO_COLOR}💕 $package_name was installed successfully!${RESET_COLOR}"
 }
 
-# Function to list packages installed by nv
+# Function to list installed packages
 function list_installed {
-    dpkg -l | grep '^ii' | awk '{print $2}' | grep -E '^nv-' | while read -r pkg; do
-        echo -e "${BOLD_GREEN}${pkg}${RESET_COLOR}"
-    done
+    dpkg -l | grep '^ii' | awk '{print $2}'
 }
 
 # Function to list all packages in all repos
 function list_all_packages {
     if [ -f "$PACKAGES_TXT" ]; then
-        cat "$PACKAGES_TXT" | awk '{print $1}' | sort -u
+        cat "$PACKAGES_TXT"
     else
-        echo "No packages available."
+        echo -e "${INFO_COLOR}No packages available.${RESET_COLOR}"
     fi
 }
 
 # Function to list packages in a specific repo
 function list_repo_packages {
     local repo_url="$1"
-    curl -s "$repo_url/packages.txt" | while read -r line; do
-        package_name=$(echo "$line" | awk '{print $1}')
-        echo -e "${BOLD_GREEN}${package_name}${RESET_COLOR}"
-    done
+    curl -s "$repo_url/packages.txt"
 }
 
 # Function to list all added repositories
@@ -130,7 +135,7 @@ function list_repos {
     if [ -f "$REPO_LIST_FILE" ]; then
         jq '.' "$REPO_LIST_FILE"
     else
-        echo "No repositories added."
+        echo -e "${INFO_COLOR}No repositories added.${RESET_COLOR}"
     fi
 }
 
@@ -140,11 +145,11 @@ function add_repo {
     # Remove trailing slash if present
     repo_url=$(echo "$repo_url" | sed 's:/*$::')
     if jq -e --arg url "$repo_url" '.[] | .url == $url' "$REPO_LIST_FILE" > /dev/null; then
-        echo "Repository $repo_url already added."
+        echo -e "${INFO_COLOR}Repository $repo_url already added.${RESET_COLOR}"
     else
         jq --arg url "$repo_url" '. += [{"url": $url}]' "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
         mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
-        echo "Added repository: $repo_url"
+        echo -e "${INFO_COLOR}Added repository: $repo_url${RESET_COLOR}"
     fi
 }
 
@@ -154,21 +159,18 @@ function remove_repo {
     if jq -e --arg url "$repo_url" '.[] | .url == $url' "$REPO_LIST_FILE" > /dev/null; then
         jq --arg url "$repo_url" 'del(.[] | select(.url == $url))' "$REPO_LIST_FILE" > "$REPO_LIST_FILE.tmp"
         mv "$REPO_LIST_FILE.tmp" "$REPO_LIST_FILE"
-        echo "Removed repository: $repo_url"
+        echo -e "${INFO_COLOR}Removed repository: $repo_url${RESET_COLOR}"
     else
-        echo "Repository $repo_url not found."
+        echo -e "${ERROR_COLOR}Repository $repo_url not found.${RESET_COLOR}"
     fi
 }
 
 # Function to remove a package
 function remove_package {
     local package_name="$1"
-    echo -e "Removing package: ${BOLD_GREEN}${package_name}${RESET_COLOR}"
-    if sudo apt-get remove --purge -y "$package_name"; then
-        echo -e "💔 ${BOLD_GREEN}${package_name}${RESET_COLOR} was removed successfully."
-    else
-        echo -e "Oops! There was an issue removing ${BOLD_GREEN}${package_name}${RESET_COLOR}. 😟"
-    fi
+    echo -e "Removing package: ${PACKAGE_COLOR}$package_name${RESET_COLOR}"
+    sudo apt-get remove --purge "$package_name"
+    echo -e "${INFO_COLOR}💔 $package_name was removed successfully.${RESET_COLOR}"
 }
 
 # Function to check and upgrade nv script
@@ -208,19 +210,12 @@ function upgrade_nv {
     rm "$temp_script"
 }
 
-# Function to display usage
-function display_usage {
-    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv}${RESET_COLOR}"
-    echo -e "${INFO_COLOR}Commands:${RESET_COLOR}"
-    echo -e "  ${BOLD}update${RESET_COLOR}             Update the local package list from repositories."
-    echo -e "  ${BOLD}install <package_name>${RESET_COLOR}    Install a package."
-    echo -e "  ${BOLD}list${RESET_COLOR}                List packages installed by nv."
-    echo -e "  ${BOLD}list --repo <repo_url>${RESET_COLOR} List packages from a specific repository."
-    echo -e "  ${BOLD}list-repos${RESET_COLOR}          List all added repositories."
-    echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}   Add a new repository."
-    echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR} Remove an existing repository."
-    echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}  Remove a package."
-    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}         Check for updates to the nv script."
+# Ensure the script is executable and runs correctly after an update
+function check_script {
+    if [ ! -x "$0" ]; then
+        echo -e "${ERROR_COLOR}Script is not executable. Please set execute permissions.${RESET_COLOR}"
+        exit 1
+    fi
 }
 
 # Main script logic
@@ -282,6 +277,7 @@ case "$COMMAND" in
         ;;
     --upgrade-nv)
         upgrade_nv
+        check_script
         ;;
     *)
         echo -e "${ERROR_COLOR}Invalid command.${RESET_COLOR}"
