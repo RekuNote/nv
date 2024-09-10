@@ -178,7 +178,7 @@ function upgrade_nv {
     local temp_script=$(mktemp)
     local temp_hash=$(mktemp)
 
-    echo "Checking for script updates..."
+    echo "Checking for updates..."
 
     # Fetch remote hash
     curl -s -o "$temp_hash" "$HASH_URL"
@@ -191,7 +191,7 @@ function upgrade_nv {
     # Download the latest script
     curl -s -o "$temp_script" "$SCRIPT_URL"
     if [ $? -ne 0 ]; then
-        echo -e "${ERROR_COLOR}Error downloading script from $SCRIPT_URL${RESET_COLOR}"
+        echo -e "${ERROR_COLOR}There was an error while checking for updates.${RESET_COLOR}"
         rm "$temp_script" "$temp_hash"
         exit 1
     fi
