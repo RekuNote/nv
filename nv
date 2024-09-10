@@ -7,6 +7,7 @@ REPOS_DIR="$HOME/.nv_repos"
 REPO_LIST_FILE="$REPOS_DIR/repos.json"
 PACKAGES_DIR="$REPOS_DIR/packages"
 PACKAGES_TXT="$REPOS_DIR/packages.txt"
+SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
 
 # Colors and formatting
 BOLD_GREEN='\033[1;32m'
@@ -170,9 +171,29 @@ function remove_package {
     fi
 }
 
+# Function to check and upgrade nv script
+function upgrade_nv {
+    local current_script="$0"
+    local temp_file=$(mktemp)
+
+    echo "Checking for script updates..."
+
+    curl -s -o "$temp_file" "$SCRIPT_URL"
+    if cmp -s "$current_script" "$temp_file"; then
+        echo -e "${INFO_COLOR}You already have the latest version of nv installed, silly.${RESET_COLOR}"
+        rm "$temp_file"
+    else
+        echo "Updating nv..."
+        cp "$temp_file" "$current_script"
+        chmod +x "$current_script"
+        echo -e "${INFO_COLOR}Successfully updated nv to the latest version! 🎉${RESET_COLOR}"
+        rm "$temp_file"
+    fi
+}
+
 # Function to display usage
 function display_usage {
-    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove} [arguments...]${RESET_COLOR}"
+    echo -e "${INFO_COLOR}Usage: $0 {update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv} [arguments...]${RESET_COLOR}"
     echo
     echo -e "${BOLD}Commands:${RESET_COLOR}"
     echo -e "  ${BOLD}update${RESET_COLOR}                  Update the local package list from all repositories."
@@ -183,9 +204,9 @@ function display_usage {
     echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}      Add a repository URL."
     echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR}   Remove a repository URL."
     echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}    Remove the specified package."
+    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}            Check for and apply updates to the nv script."
     echo
-    echo -e "${INFO_COLOR}Note:${RESET_COLOR} Commands must be run with sudo for proper permissions."
-    echo -e "${ERROR_COLOR}use sudo 🐒${RESET_COLOR}"
+    echo -e "${INFO_COLOR}Note:${RESET_COLOR} Commands must be run with sudo."
 }
 
 # Main script logic
@@ -194,10 +215,11 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
+check_sudo
+
 COMMAND="$1"
 shift
 
-check_sudo
 setup_nv
 
 case "$COMMAND" in
@@ -214,11 +236,10 @@ case "$COMMAND" in
     list)
         if [ "$#" -eq 0 ]; then
             list_installed
-        elif [ "$#" -eq 1 ] && [ "$1" == "--repo" ]; then
-            for repo in $(jq -r '.[] | .url' "$REPO_LIST_FILE"); do
-                echo "Packages from $repo:"
-                list_repo_packages "$repo"
-            done
+        elif [ "$#" -eq 2 ] && [ "$1" == "--repo" ]; then
+            list_repo_packages "$2"
+        elif [ "$#" -eq 0 ]; then
+            list_all_packages
         else
             echo "Usage: $0 list [--repo <repo_url>]"
             exit 1
@@ -247,6 +268,9 @@ case "$COMMAND" in
             exit 1
         fi
         remove_package "$1"
+        ;;
+    --upgrade-nv)
+        upgrade_nv
         ;;
     *)
         echo -e "${ERROR_COLOR}Invalid command.${RESET_COLOR}"
