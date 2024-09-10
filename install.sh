@@ -63,10 +63,10 @@ function install_nv {
 
     if ! grep -q "$INSTALL_DIR" <<< "$PATH"; then
         echo "Adding $INSTALL_DIR to PATH..."
-        if [ "$SHELL" = "bash" ]; then
+        if [ "$SHELL" = "/bin/bash" ]; then
             echo "export PATH=\$PATH:$INSTALL_DIR" >> "$BASHRC_PATH"
             source "$BASHRC_PATH"
-        elif [ "$SHELL" = "zsh" ]; then
+        elif [ "$SHELL" = "/bin/zsh" ]; then
             echo "export PATH=\$PATH:$INSTALL_DIR" >> "$ZSHRC_PATH"
             source "$ZSHRC_PATH"
         else
@@ -80,7 +80,8 @@ function install_nv {
 # Function to add command not found handler to shell configuration
 function add_command_not_found_handler {
     local shell_rc_path="$1"
-    local handler_function='
+    local handler_function
+    handler_function=$(cat <<'EOF'
 function command_not_found_handle() {
     local cmd="$1"
 
@@ -100,7 +101,8 @@ function command_not_found_handle() {
     echo ""
     echo "sudo apt install $cmd"
 }
-'
+EOF
+)
     # Add the handler function if not already present
     if ! grep -q "command_not_found_handle" "$shell_rc_path"; then
         echo "$handler_function" >> "$shell_rc_path"
