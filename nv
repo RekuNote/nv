@@ -230,16 +230,6 @@ function uninstall_nv {
         [yY])
             echo "Uninstalling nv..."
             sudo rm -f "$NV_BIN_PATH"
-
-            # Remove configuration from shell
-            if [ "$SHELL" = "bash" ]; then
-                remove_command_not_found_handler "$BASHRC_PATH"
-            elif [ "$SHELL" = "zsh" ]; then
-                remove_command_not_found_handler "$ZSHRC_PATH"
-            else
-                echo "Unsupported shell: $SHELL"
-            fi
-
             echo -e "${INFO_COLOR}Uninstallation complete. Bye. 💔${RESET_COLOR}"
             ;;
         *)
