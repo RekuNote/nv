@@ -183,10 +183,19 @@ function upgrade_nv {
         echo -e "${INFO_COLOR}You already have the latest version of nv installed, silly.${RESET_COLOR}"
         rm "$temp_file"
     else
-        echo "Updating nv..."
-        cp "$temp_file" "$current_script"
-        chmod +x "$current_script"
-        echo -e "${INFO_COLOR}Successfully updated nv to the latest version! 🎉${RESET_COLOR}"
+        echo -e "${INFO_COLOR}An update is available for nv.${RESET_COLOR}"
+        read -p "Do you want to update to the latest version? [y/N] " response
+        case "$response" in
+            [yY])
+                echo "Updating nv..."
+                cp "$temp_file" "$current_script"
+                chmod +x "$current_script"
+                echo -e "${INFO_COLOR}Successfully updated nv to the latest version! 🎉${RESET_COLOR}"
+                ;;
+            *)
+                echo -e "${INFO_COLOR}Update canceled.${RESET_COLOR}"
+                ;;
+        esac
         rm "$temp_file"
     fi
 }
@@ -198,15 +207,12 @@ function display_usage {
     echo -e "${BOLD}Commands:${RESET_COLOR}"
     echo -e "  ${BOLD}update${RESET_COLOR}                  Update the local package list from all repositories."
     echo -e "  ${BOLD}install <package_name>${RESET_COLOR}   Install the specified package."
-    echo -e "  ${BOLD}list${RESET_COLOR}                    List packages installed by nv."
     echo -e "  ${BOLD}list --repo [repo_url]${RESET_COLOR}   List packages in the specified repository, or all repos if none specified."
     echo -e "  ${BOLD}list-repos${RESET_COLOR}              List all added repositories."
     echo -e "  ${BOLD}add-repo <repo_url>${RESET_COLOR}      Add a repository URL."
     echo -e "  ${BOLD}remove-repo <repo_url>${RESET_COLOR}   Remove a repository URL."
     echo -e "  ${BOLD}remove <package_name>${RESET_COLOR}    Remove the specified package."
-    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}            Check for and apply updates to the nv script."
-    echo
-    echo -e "${INFO_COLOR}Note:${RESET_COLOR} Commands must be run with sudo."
+    echo -e "  ${BOLD}--upgrade-nv${RESET_COLOR}            Check for newer versions of nv."
 }
 
 # Main script logic
@@ -228,7 +234,7 @@ case "$COMMAND" in
         ;;
     install)
         if [ "$#" -ne 1 ]; then
-            echo "Usage: $0 install <package_name>"
+            echo -e "${ERROR_COLOR}Usage: $0 install <package_name>${RESET_COLOR}"
             exit 1
         fi
         install_package "$1"
@@ -241,7 +247,7 @@ case "$COMMAND" in
         elif [ "$#" -eq 0 ]; then
             list_all_packages
         else
-            echo "Usage: $0 list [--repo <repo_url>]"
+            echo -e "${ERROR_COLOR}Usage: $0 list [--repo <repo_url>]${RESET_COLOR}"
             exit 1
         fi
         ;;
@@ -250,21 +256,21 @@ case "$COMMAND" in
         ;;
     add-repo)
         if [ "$#" -ne 1 ]; then
-            echo "Usage: $0 add-repo <repo_url>"
+            echo -e "${ERROR_COLOR}Usage: $0 add-repo <repo_url>${RESET_COLOR}"
             exit 1
         fi
         add_repo "$1"
         ;;
     remove-repo)
         if [ "$#" -ne 1 ]; then
-            echo "Usage: $0 remove-repo <repo_url>"
+            echo -e "${ERROR_COLOR}Usage: $0 remove-repo <repo_url>${RESET_COLOR}"
             exit 1
         fi
         remove_repo "$1"
         ;;
     remove)
         if [ "$#" -ne 1 ]; then
-            echo "Usage: $0 remove <package_name>"
+            echo -e "${ERROR_COLOR}Usage: $0 remove <package_name>${RESET_COLOR}"
             exit 1
         fi
         remove_package "$1"
