@@ -8,7 +8,6 @@ REPO_LIST_FILE="$REPOS_DIR/repos.json"
 PACKAGES_DIR="$REPOS_DIR/packages"
 PACKAGES_TXT="$REPOS_DIR/packages.txt"
 SCRIPT_URL="https://raw.githubusercontent.com/RekuNote/nv/main/nv"
-NV_SCRIPT_PATH="$(realpath "$0")"
 
 # Colors
 RESET_COLOR='\033[0m'
@@ -27,8 +26,7 @@ function display_usage {
     echo -e "  add-repo <url>   - Add a new repository URL."
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
-    echo -e "  --upgrade-nv     - Check for newer versions of nv."
-    echo -e "  --uninstall-nv   - Uninstall nv and remove related files.\n"
+    echo -e "  --upgrade-nv     - Check for newer versions of nv.\n"
 }
 
 # Function to check if running with sudo
@@ -98,24 +96,6 @@ EOF
         echo -e "${INFO_COLOR}Custom command not found handler added to $shell_config_file. Please restart your shell session or run 'source $shell_config_file' to apply changes.${RESET_COLOR}"
     else
         echo -e "${INFO_COLOR}Custom command not found handler already set up in $shell_config_file.${RESET_COLOR}"
-    fi
-}
-
-# Function to remove the command not found handler
-function undo_command_not_found {
-    local shell_config_file
-    if [ -n "$BASH_VERSION" ]; then
-        shell_config_file="$HOME/.bashrc"
-    elif [ -n "$ZSH_VERSION" ]; then
-        shell_config_file="$HOME/.zshrc"
-    else
-        return
-    fi
-
-    if grep -q 'command_not_found_handle()' "$shell_config_file"; then
-        echo "Removing command not found handler from $shell_config_file"
-        sed -i '/command_not_found_handle()/,/\}/d' "$shell_config_file"
-        echo -e "${INFO_COLOR}Command not found handler removed. Please restart your shell session or run 'source $shell_config_file' to apply changes.${RESET_COLOR}"
     fi
 }
 
@@ -254,40 +234,10 @@ function upgrade_nv {
 
     if [ "$latest_version" != "$current_version" ]; then
         echo -e "${INFO_COLOR}A new version of nv is available: ${PACKAGE_COLOR}$latest_version${RESET_COLOR}"
-        echo -e "Run 'sudo nv --upgrade-nv' to update."
+        echo -e "Run 'sudo nv upgrade-nv' to update."
     else
         echo -e "${INFO_COLOR}You are using the latest version of nv.${RESET_COLOR}"
     fi
-}
-
-# Function to uninstall nv
-function uninstall_nv {
-    read -p "Are you sure you want to uninstall nv? This action cannot be undone. [y/N] " confirmation
-    case "$confirmation" in
-        [yY])
-            echo "Uninstalling nv..."
-
-            # Remove the nv script
-            if [ -f "$NV_SCRIPT_PATH" ]; then
-                sudo rm "$NV_SCRIPT_PATH"
-                echo -e "${INFO_COLOR}nv script removed.${RESET_COLOR}"
-            fi
-
-            # Remove nv directories and files
-            if [ -d "$REPOS_DIR" ]; then
-                rm -rf "$REPOS_DIR"
-                echo -e "${INFO_COLOR}NV directories removed.${RESET_COLOR}"
-            fi
-
-            # Undo command not found handler modifications
-            undo_command_not_found
-
-            echo -e "bye. 💔"
-            ;;
-        *)
-            echo -e "${INFO_COLOR}Uninstallation canceled.${RESET_COLOR}"
-            ;;
-    esac
 }
 
 # Main function
@@ -328,9 +278,6 @@ function main {
             ;;
         --upgrade-nv)
             upgrade_nv
-            ;;
-        --uninstall-nv)
-            uninstall_nv
             ;;
         *)
             echo -e "${ERROR_COLOR}Unknown command: $command${RESET_COLOR}"
