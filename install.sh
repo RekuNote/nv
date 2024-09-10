@@ -129,17 +129,53 @@ complete -F _nv_completion /usr/local/bin/nv
 EOF
 )
 
-    # Create the directory for completion scripts if it doesn't exist
-    sudo mkdir -p /etc/bash_completion.d
+sudo mkdir -p /etc/bash_completion.d/nv
+sudo tee /etc/bash_completion.d/nv << 'EOF'
+#!/bin/bash
 
-    # Write the completion script to the specified location
-    echo "$completion_script_content" | sudo tee "$COMPLETION_SCRIPT_PATH" > /dev/null
+# Completion function for nv script
+_nv_completion() {
+    local cur prev opts
 
-    # Make the completion script executable
-    sudo chmod +x "$COMPLETION_SCRIPT_PATH"
+    # Get the current word being completed
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    echo -e "${INFO_COLOR}Bash completion script installed successfully!${RESET_COLOR}"
+    # Define possible top-level commands
+    local commands="update install list list-repos add-repo remove-repo remove --upgrade-nv --uninstall-nv"
+
+    # Define options for 'list'
+    local list_options="--repo"
+
+    case "$prev" in
+        update|install|list|list-repos|add-repo|remove-repo|remove|--upgrade-nv|--uninstall-nv)
+            opts=""
+            ;;
+        list)
+            if [[ "$cur" == --* ]]; then
+                opts="$list_options"
+            else
+                opts=""
+            fi
+            ;;
+        add-repo|remove-repo|remove|install)
+            opts=""
+            ;;
+        *)
+            opts="$commands"
+            ;;
+    esac
+
+    # Generate completions
+    COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
 }
+
+# Register the completion function
+complete -F _nv_completion /usr/local/bin/nv
+EOF
+sudo chmod +x /etc/bash_completion.d/nv
+source ~/.bashrc
+
 
 # Main script logic
 check_compatibility
