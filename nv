@@ -1,4 +1,4 @@
-#!/bin/bash
+z#!/bin/bash
 
 # NV Package Manager Client
 
@@ -19,6 +19,12 @@ INFO_COLOR='\033[1;34m'
 ERROR_COLOR='\033[1;31m'
 PACKAGE_COLOR='\033[1;32m'
 
+# Function to display version information
+function show_version {
+    local architecture=$(uname -m)  # Get the architecture
+    echo "nv package manager ver 1.0 stable (release) ($architecture)"
+}
+
 # Function to display usage
 function display_usage {
     echo -e "\n${INFO_COLOR}Usage: nv [arguments...]${RESET_COLOR}"
@@ -32,6 +38,7 @@ function display_usage {
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
     echo -e "  --uninstall-nv   - Uninstall nv.\n"
+    echo -e "\n${INFO_COLOR}© RekuNote 2024${RESET_COLOR}"
 }
 
 # Function to check if running with sudo
