@@ -22,7 +22,7 @@ PACKAGE_COLOR='\033[1;32m'
 # Function to display version information
 function show_version {
     local architecture=$(uname -m)  # Get the architecture
-    echo "nv package manager ver 1.0 stable (release) ($architecture)"
+    echo "nv package manager ver 1.0.1 stable (release) ($architecture)"
 }
 
 # Function to display usage
@@ -37,8 +37,8 @@ function display_usage {
     echo -e "  remove-repo <url>- Remove a repository URL."
     echo -e "  remove <pkg>     - Remove the specified package."
     echo -e "  --upgrade-nv     - Check for newer versions of nv."
-    echo -e "  --uninstall-nv   - Uninstall nv.\n"
-    echo -e "\n${INFO_COLOR}© RekuNote 2024${RESET_COLOR}"
+    echo -e "  --uninstall-nv   - Uninstall nv."
+    echo -e "${INFO_COLOR}© RekuNote 2024${RESET_COLOR}\n"
 }
 
 # Function to check if running with sudo
